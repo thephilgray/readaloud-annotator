@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import axios from 'axios';
+// import axios from 'axios';
 import CustomReadAloud from 'custom-readaloud-plugin/dist/custom-read-aloud-0.1.5';
 import { withFirebase } from './components/Firebase';
 import './App.css';
@@ -30,7 +30,7 @@ function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
   );
 }
 
-function App(props) {
+function App({ firebase }) {
   const textareaInput = useRef(null);
   const audioEl = useRef(null);
   const preview = useRef(null);
@@ -61,7 +61,7 @@ function App(props) {
         customReader.changePlaybackRate(e.target.value);
       });
     }
-  }, [audioFile, textMap]);
+  }, [audioFile, firebase, textMap]);
 
   const roundHalf = n => Number((Math.round(Number(n) * 2) / 2).toFixed(1));
 
@@ -124,20 +124,30 @@ function App(props) {
     setTextmap(createTextMap(text));
   };
   const submitHandler = () => {
-    const data = {
-      textMap,
-      fileId
-    };
-    axios
-      .post(
-        'https://custom-readaloud-annotator.firebaseio.com/files.json',
-        JSON.stringify(data)
-      )
+    firebase
+      .file(fileId.split('.')[0])
+      .set({
+        ...textMap
+      })
       .then(() => {
         console.log('done');
         resetHandler();
       })
       .catch(error => console.log(error));
+    // const data = {
+    //   fileId,
+    //   textMap
+    // };
+    // axios
+    //   .post(
+    //     'https://custom-readaloud-annotator.firebaseio.com/files.json',
+    //     JSON.stringify(data)
+    //   )
+    //   .then(() => {
+    //     console.log('done');
+    //     resetHandler();
+    //   })
+    //   .catch(error => console.log(error));
   };
 
   const resetHandler = () => {
