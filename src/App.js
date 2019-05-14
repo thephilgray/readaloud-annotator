@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import axios from 'axios';
 import CustomReadAloud from 'custom-readaloud-plugin/dist/custom-read-aloud-0.1.5';
+import { withFirebase } from './components/Firebase';
 import './App.css';
 
 function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
@@ -28,13 +30,14 @@ function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
   );
 }
 
-function App() {
-  // const [text, setText] = useState('');
+function App(props) {
+  const textareaInput = useRef(null);
   const audioEl = useRef(null);
   const preview = useRef(null);
   const audioFilePicker = useRef(null);
 
   const [audioFile, setAudioFile] = useState(null);
+  const [fileId, setFileId] = useState(null);
 
   const createTextMap = text =>
     text
@@ -111,7 +114,8 @@ function App() {
 
   const chooseFile = e => {
     const file = e.target.files[0];
-    if(!file) return;
+    setFileId(file.name);
+    if (!file) return;
     setAudioFile(URL.createObjectURL(file));
   };
 
@@ -119,19 +123,53 @@ function App() {
     const text = e.target.value;
     setTextmap(createTextMap(text));
   };
+  const submitHandler = () => {
+    const data = {
+      textMap,
+      fileId
+    };
+    axios
+      .post(
+        'https://custom-readaloud-annotator.firebaseio.com/files.json',
+        JSON.stringify(data)
+      )
+      .then(() => {
+        console.log('done');
+        resetHandler();
+      })
+      .catch(error => console.log(error));
+  };
+
+  const resetHandler = () => {
+    audioFilePicker.current.value = '';
+    textareaInput.current.value = '';
+    setFileId(null);
+    setTextmap(createTextMap(''));
+    setAudioFile(null);
+  };
 
   return (
     <div style={{ padding: '1em', maxWidth: '50%', margin: '0 auto' }}>
       <h1>Readaloud Annotator Demo</h1>
       <div>
         <h2>Input</h2>
-        <input
-          type="file"
-          accept="audio/*"
-          ref={audioFilePicker}
-          onChange={chooseFile}
+        <label htmlFor="audioFilePicker">
+          Select an audio file
+          <input
+            id="audioFilePicker"
+            type="file"
+            accept="audio/*"
+            ref={audioFilePicker}
+            onChange={chooseFile}
+          />
+        </label>
+        <textarea
+          rows="10"
+          style={{ width: '100%' }}
+          onChange={inputText}
+          ref={textareaInput}
+          placeholder="Enter readaloud text"
         />
-        <textarea rows="10" style={{ width: '100%' }} onChange={inputText} />
       </div>
       {audioFile && textMap && (
         <>
@@ -220,10 +258,14 @@ function App() {
             </div>
           </div>
           <div />
+          <div style={{ width: '100%' }}>
+            <button onClick={submitHandler}>Submit to Server</button>
+            <button onClick={resetHandler}>Reset</button>
+          </div>
         </>
       )}
     </div>
   );
 }
 
-export default App;
+export default withFirebase(App);
