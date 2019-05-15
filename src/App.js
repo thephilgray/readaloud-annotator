@@ -1,93 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
-// import axios from 'axios';
-import CustomReadAloud from 'custom-readaloud-plugin/dist/custom-read-aloud-0.1.5';
+import React, { useState, useRef } from 'react';
+
 import { withFirebase } from './components/Firebase';
+import { withStyles } from '@material-ui/core/styles';
+import withRoot from './withRoot';
+import AppStepper from './components/AppStepper';
+import { createTextMap, roundHalf, toHtml } from './lib';
+import logo from './logo.svg';
 import './App.css';
+import { Typography } from '@material-ui/core';
+const styles = theme => ({
+  root: {
+    textAlign: 'center',
+    paddingTop: theme.spacing.unit * 20
+  }
+});
 
-function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
-  return (
-    <span
-      style={{
-        position: 'relative',
-        paddingTop: '1em',
-        lineHeight: 2
-      }}
-    >
-      <span style={{ fontSize: '.25em', top: '0', position: 'absolute' }}>
-        {playhead}
-      </span>
-      <span
-        style={{
-          userSelect: 'none',
-          cursor: 'pointer'
-        }}
-        onClick={setPlayhead}
-        onDoubleClick={clearPlayhead}
-      >
-        {chunk.val === '\n' ? <br /> : chunk.val + ' '}
-      </span>
-    </span>
-  );
-}
-
-function App({ firebase }) {
+function App({ firebase, classes }) {
   const textareaInput = useRef(null);
   const audioEl = useRef(null);
   const preview = useRef(null);
   const audioFilePicker = useRef(null);
-
   const [audioFile, setAudioFile] = useState(null);
   const [fileId, setFileId] = useState(null);
-
-  const createTextMap = text =>
-    text
-      .split('\n')
-      .map(line => line.split(' '))
-      .reduce((acc, curr) => {
-        if (typeof curr === 'object') {
-          return [...acc, ...curr, '\n'];
-        }
-        return [...acc, curr];
-      }, [])
-      .map(val => ({ val }));
-
   const [textMap, setTextmap] = useState(createTextMap(''));
-
-  useEffect(() => {
-    if (audioFile && preview) {
-      var customReader = new CustomReadAloud('.readAloud', '#audioPlayer');
-      var audioSpeed = document.querySelector('#audioSpeed');
-      audioSpeed.addEventListener('change', function(e) {
-        customReader.changePlaybackRate(e.target.value);
-      });
-    }
-  }, [audioFile, firebase, textMap]);
-
-  const roundHalf = n => Number((Math.round(Number(n) * 2) / 2).toFixed(1));
-
-  const toHtml = data => {
-    let firstPlayhead = true;
-    return data.reduce((acc, curr, i) => {
-      /* if the first item doesn't have a data-playhead, set it to 0 */
-      if (i === 0 && curr.playhead === undefined) {
-        return `<span data-playhead="0">${acc}${curr.val} `;
-      } else if (curr.playhead !== undefined && firstPlayhead) {
-        firstPlayhead = false;
-        return `${acc}<span data-playhead="${curr.playhead}">${curr.val} `;
-      } else if (curr.playhead !== undefined) {
-        return `${acc}</span><span data-playhead="${curr.playhead}">${
-          curr.val
-        } `;
-      }
-      // if last item give it a wrapping span tag
-      else if (data.length - 1 === i) {
-        return `${acc}${curr.val}</span>`;
-      } else if (curr.val === '\n') {
-        return `${acc}<br/>`;
-      }
-      return `${acc}${curr.val} `;
-    }, '');
-  };
+  const [readaloudText, setReadaloudText] = useState('');
 
   // const readAloudTextChangeHandler = e => setText(e.target.value);
   const setPlayhead = i => () => {
@@ -99,8 +35,6 @@ function App({ firebase }) {
       return obj;
     });
     newTextMap[i].playhead = newTime;
-    // //reset duplicates
-    // const playHeads = uniqBy(newTextMap, 'playhead');
 
     setTextmap(newTextMap);
   };
@@ -112,17 +46,28 @@ function App({ firebase }) {
     setTextmap(newTextMap);
   };
 
-  const chooseFile = e => {
-    const file = e.target.files[0];
-    setFileId(file.name);
-    if (!file) return;
-    setAudioFile(URL.createObjectURL(file));
+  /* for material-ui-dropzone */
+
+  const chooseFile = files => {
+    if (files.length > 0) {
+      const file = files[0];
+      file.name && setFileId(file.name);
+      if (!file) return;
+      setAudioFile(URL.createObjectURL(file));
+    }
+  };
+
+  const resetFile = file => {
+    setFileId(null);
+    setAudioFile(null);
   };
 
   const inputText = e => {
     const text = e.target.value;
+    setReadaloudText(text);
     setTextmap(createTextMap(text));
   };
+
   const submitHandler = () => {
     firebase
       .file(fileId.split('.')[0])
@@ -131,151 +76,54 @@ function App({ firebase }) {
       })
       .then(() => {
         console.log('done');
-        resetHandler();
       })
       .catch(error => console.log(error));
-    // const data = {
-    //   fileId,
-    //   textMap
-    // };
-    // axios
-    //   .post(
-    //     'https://custom-readaloud-annotator.firebaseio.com/files.json',
-    //     JSON.stringify(data)
-    //   )
-    //   .then(() => {
-    //     console.log('done');
-    //     resetHandler();
-    //   })
-    //   .catch(error => console.log(error));
   };
 
   const resetHandler = () => {
-    audioFilePicker.current.value = '';
-    textareaInput.current.value = '';
+    resetFile();
+    setReadaloudText('');
     setFileId(null);
     setTextmap(createTextMap(''));
-    setAudioFile(null);
   };
 
   return (
-    <div style={{ padding: '1em', maxWidth: '50%', margin: '0 auto' }}>
-      <h1>Readaloud Annotator Demo</h1>
-      <div>
-        <h2>Input</h2>
-        <label htmlFor="audioFilePicker">
-          Select an audio file
-          <input
-            id="audioFilePicker"
-            type="file"
-            accept="audio/*"
-            ref={audioFilePicker}
-            onChange={chooseFile}
-          />
-        </label>
-        <textarea
-          rows="10"
-          style={{ width: '100%' }}
-          onChange={inputText}
-          ref={textareaInput}
-          placeholder="Enter readaloud text"
-        />
+    <div
+      className={classes.root}
+      style={{ padding: '1em', maxWidth: '70em', margin: '0 auto' }}
+    >
+      <div
+        style={{
+          padding: '1em',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <img src={logo} alt="logo" className="App-logo" />
+        <Typography variant="h3" component="h1">
+          Custom Readaloud Annotator
+        </Typography>
       </div>
-      {audioFile && textMap && (
-        <>
-          <div>
-            <h2>Audio</h2>
-            <div
-              style={{
-                display: 'flex',
-                maxWidth: '30em',
-                alignItems: 'center'
-              }}
-            >
-              <audio id="audioPlayer" controls ref={audioEl} src={audioFile} />
-              <label htmlFor="audioSpeed">Speed</label>
-              <input
-                id="audioSpeed"
-                type="range"
-                step=".25"
-                max="2"
-                // value={speed}
-                // onChange={audioSpeedChangeHandler}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex' }}>
-            <div>
-              <h2>Annotator</h2>
-              <div
-                className="annotator"
-                style={{
-                  position: 'relative',
-                  padding: '1em',
-                  lineHeight: 2,
-                  maxWidth: '30em'
-                }}
-              >
-                {textMap.map((chunk, i) => (
-                  <Chunk
-                    key={i}
-                    setPlayhead={setPlayhead(i)}
-                    clearPlayhead={clearPlayhead(i)}
-                    chunk={chunk}
-                    first={i === 0}
-                    last={i === textMap.length - 1}
-                    playhead={chunk.playhead}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <h2>Readaloud Preview</h2>
-              <div
-                className="readAloud"
-                ref={preview}
-                dangerouslySetInnerHTML={{ __html: toHtml(textMap) }}
-                style={{
-                  position: 'relative',
-                  padding: '1em',
-                  lineHeight: 2,
-                  maxWidth: '30em',
-                  cursor: 'pointer'
-                }}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex' }}>
-            <div style={{ width: '100%' }}>
-              <h2>Data</h2>
-              <textarea
-                className="result"
-                rows="20"
-                value={JSON.stringify(textMap)}
-                onChange={() => {}}
-                style={{ width: '100%' }}
-              />
-            </div>
-            <div style={{ width: '100%' }}>
-              <h2>HTML</h2>
-              <textarea
-                className="result"
-                rows="20"
-                value={toHtml(textMap)}
-                onChange={() => {}}
-                style={{ width: '100%' }}
-              />
-            </div>
-          </div>
-          <div />
-          <div style={{ width: '100%' }}>
-            <button onClick={submitHandler}>Submit to Server</button>
-            <button onClick={resetHandler}>Reset</button>
-          </div>
-        </>
-      )}
+      <AppStepper
+        fileId={fileId}
+        audioFilePicker={audioFilePicker}
+        chooseFile={chooseFile}
+        resetFile={resetFile}
+        inputText={inputText}
+        textareaInput={textareaInput}
+        audioEl={audioEl}
+        audioFile={audioFile}
+        setPlayhead={setPlayhead}
+        clearPlayhead={clearPlayhead}
+        textMap={textMap}
+        preview={preview}
+        toHtml={toHtml}
+        submitHandler={submitHandler}
+        resetHandler={resetHandler}
+        readaloudText={readaloudText}
+      />
     </div>
   );
 }
-
-export default withFirebase(App);
+export default withRoot(withStyles(styles)(withFirebase(App)));
