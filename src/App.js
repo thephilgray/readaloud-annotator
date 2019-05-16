@@ -97,11 +97,12 @@ function App({ firebase, classes }) {
           padding: '1em',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          flexWrap: 'wrap'
         }}
       >
         <img src={logo} alt="logo" className="App-logo" />
-        <Typography variant="h3" component="h1">
+        <Typography variant="h4" component="h1">
           Custom Readaloud Annotator
         </Typography>
       </div>
