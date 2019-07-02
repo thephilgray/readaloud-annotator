@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import CustomReadAloud from 'custom-readaloud-plugin/dist/custom-read-aloud-0.1.5';
+import React, { useState } from 'react';
+import CustomReader from './CustomReader'
 import { withStyles } from '@material-ui/core/styles';
 import Paper from '@material-ui/core/Paper';
 import Grid from '@material-ui/core/Grid';
@@ -27,10 +27,13 @@ function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
       style={{
         position: 'relative',
         paddingTop: '1em',
-        lineHeight: 2
+        lineHeight: 2.5
       }}
     >
-      <span style={{ fontSize: '.25em', top: '0', position: 'absolute' }}>
+      <span
+        style={{ fontSize: '.25em', top: '0', position: 'absolute' }}
+        step=".1"
+      >
         {playhead}
       </span>
       <span
@@ -49,15 +52,13 @@ function Chunk({ chunk, playhead, setPlayhead, clearPlayhead, first, last }) {
 
 const Annotator = props => {
   const { classes } = props;
-  useEffect(() => {
-    if (props.audioFile && props.preview) {
-      var customReader = new CustomReadAloud('.readAloud', '#audioPlayer');
-      var audioSpeed = document.querySelector('#audioSpeed');
-      audioSpeed.addEventListener('change', function(e) {
-        customReader.changePlaybackRate(e.target.value);
-      });
-    }
-  }, [props.audioFile, props.preview, props.textMap]);
+  const [speed, setSpeed] = useState(1);
+
+  const handleSpeedChange = e => {
+    setSpeed(e.target.value);
+    props.audioEl.current.playbackRate = speed;
+  }
+
   return (
     <div className={classes.root}>
       <Grid container spacing={24}>
@@ -70,8 +71,8 @@ const Annotator = props => {
               width: '100%'
             }}
           >
-            <label htmlFor="audioSpeed">Speed</label>
-            <input id="audioSpeed" type="range" step=".25" max="2" />
+            <label htmlFor="audioSpeed">Speed: {speed}</label>
+            <input id="audioSpeed" type="range" step=".25" max="2" min=".25" value={speed} onChange={handleSpeedChange} />
           </div>
         </Grid>
         <Grid item xs={6}>
@@ -121,20 +122,7 @@ const Annotator = props => {
             >
               Click the text below to preview readaloud.
             </Typography>
-            <div
-              className="readAloud"
-              ref={props.preview}
-              dangerouslySetInnerHTML={{
-                __html: props.toHtml(props.textMap)
-              }}
-              style={{
-                position: 'relative',
-                padding: '1em',
-                lineHeight: 2,
-                maxWidth: '30em',
-                cursor: 'pointer'
-              }}
-            />
+          <CustomReader audioEl={props.audioEl} preview={props.preview} textMap={props.textMap}></CustomReader>
           </Paper>
         </Grid>
 

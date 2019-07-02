@@ -11,7 +11,7 @@ export const createTextMap = text =>
     .map(val => ({ val }));
 
 export const roundHalf = n =>
-  Number((Math.round(Number(n) * 2) / 2).toFixed(1));
+  Number((Math.round(Number(n) * 10) / 10).toFixed(1));
 
 export const toHtml = data => {
   let firstPlayhead = true;
